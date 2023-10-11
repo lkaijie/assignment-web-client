@@ -22,7 +22,8 @@ import sys
 import socket
 import re
 # you may use urllib to encode data appropriately
-import urllib.parse
+# import urllib.parse import url
+from urllib.parse import urlparse
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -65,9 +66,38 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
-        return buffer.decode('utf-8')
+        return buffer.decode('utf-8', errors='ignore')
 
     def GET(self, url, args=None):
+        parsed_url = urlparse(url=url) # dict object?
+        print(parsed_url)
+        # ex: google.com
+        # scheme='https', netloc='www.google.com', path='/', params='', query='', fragment=''
+        
+        if parsed_url.scheme not in ["http","https"]:
+            raise ValueError("Url scheme not provided")
+        if parsed_url.path == "":
+            parsed_url = parsed_url._replace(path="/")
+            
+        host_info = parsed_url.netloc.split(":")
+        if len(host_info) == 1:
+            host = host_info[0]
+            port = 80
+        else:
+            host = host_info[0]
+            port = host_info[1]
+            
+        self.connect(host, port)
+        connection_type = "close"
+        # request = "GET " + parsed_url.path + " HTTP/1.1\r\nHost: " + parsed_url.hostname + "\r\nConnection: close\r\n\r\n"
+        request = f"GET {parsed_url.path} HTTP/1.1\r\nHost: {host}\r\nConnection: {connection_type}\r\n\r\n"
+        
+        
+        self.sendall(request)
+        print(request.encode('utf-8'))
+        response = self.recvall(self.socket)
+        print(response)
+        print(parsed_url)
         code = 500
         body = ""
         return HTTPResponse(code, body)
