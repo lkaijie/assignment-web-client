@@ -161,7 +161,7 @@ class TestHTTPClient(unittest.TestCase):
         http = httpclass.HTTPClient()
         req = http.GET("http://%s:%d/49872398432" % (BASEHOST,BASEPORT) )
         # print("Test 404 GET Body: [%s]" % req.body)
-        print("Test 404 GET Code: [%s]" % req.code)
+        # print("Test 404 GET Code: [%s]" % req.code)
         self.assertTrue(req != None, "None Returned!")
         self.assertTrue(req.code == 404)
 
@@ -250,7 +250,7 @@ class TestHTTPClient(unittest.TestCase):
         req = http.POST( url, args=args )
         self.assertTrue(req != None, "None Returned!")
         self.assertTrue(req.code == 200)
-        print("Test Post Body: [%s]" % req.body)
+        # print("Test Post Body: [%s]" % req.body)
         outargs = json.loads(req.body)
         print(outargs.__class__)
         for key in args:

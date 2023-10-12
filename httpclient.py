@@ -26,6 +26,7 @@ import re
 from urllib.parse import urlparse
 
 import re
+from typing import Dict
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -43,14 +44,11 @@ class HTTPClient(object):
         self.socket.connect((host, port))
         return None
 
-    def get_code(self, data):
-        return None
+
 
     def get_headers(self,data):
         return None
 
-    def get_body(self, data):
-        return None
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -100,34 +98,20 @@ class HTTPClient(object):
         return host, port, parsed_url
 
     def GET(self, url, args=None):
-        # parsed_url = urlparse(url=url) # dict object?
         # # ex: google.com
         # # scheme='https', netloc='www.google.com', path='/', params='', query='', fragment=''
-        
-        # if parsed_url.scheme not in ["http","https"]:
-        #     raise ValueError("Url scheme not provided")
-        # if parsed_url.path == "":
-        #     parsed_url = parsed_url._replace(path="/")
-            
-        # host_info = parsed_url.netloc.split(":")
-        # if len(host_info) == 1:
-        #     host = host_info[0]
-        #     port = 80
-        # else:
-        #     host = host_info[0]
-        #     port = int(host_info[1])
         host, port, parsed_url = self.parse_url(url)
         
-        print(f"host: {host}, port: {port}")
+        # print(f"host: {host}, port: {port}")
         self.connect(host, port)
         connection_type = "close"
-        # request = "GET " + parsed_url.path + " HTTP/1.1\r\nHost: " + parsed_url.hostname + "\r\nConnection: close\r\n\r\n"
         request = f"GET {parsed_url.path} HTTP/1.1\r\nHost: {host}\r\nConnection: {connection_type}\r\n\r\n"
         
         
         self.sendall(request)
         # print(request.encode('utf-8'))
         response = self.recvall(self.socket)
+        # print(f"THE REsponse: {response}")
         
         code = int(self.get_code(response))
         body = self.get_body(response)
@@ -135,13 +119,32 @@ class HTTPClient(object):
         # body = ""
         return HTTPResponse(code, body)
 
-    def POST(self, url, args=None):
+    def POST(self, url, args:Dict = None):
+        # print(f"args: {args}")
         host, port, parsed_url = self.parse_url(url)
+        self.connect(host, port)
+        connection_type = "close"
+        request = f"POST {parsed_url.path} HTTP/1.1\r\nHost: {host}\r\nConnection: {connection_type}\r\n"
+        if args:
+            request_body = '&'.join([f'{key}={value}' for key, value in args.items()])
+            request += "Content-Type: application/x-www-form-urlencoded\r\n"
+            request += f"Content-Length: {len(request_body.encode('utf-8'))}\r\n"
+            # request += f"Content-Length: {len(args)}\r\n"
+            # print(f"request length: {len(request_body.encode('utf-8'))}")
+            # print(f"request args length: {len(args)}")
+            request += "\r\n"
+            request += request_body
+            
+        else:
+            request += "Content-Length: 0\r\n"
+            request += "\r\n"
+        self.sendall(request)
+        response = self.recvall(self.socket)
+        code = int(self.get_code(response))
+        body = self.get_body(response)
         
-        
-        
-        code = 500
-        body = ""
+        # print(f"THE POST REQUEST: {request}")
+        # print(f"THE POST RESPONSE: {response}")
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
