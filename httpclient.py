@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 
 import re
 from typing import Dict
+import ssl
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -37,17 +38,32 @@ class HTTPResponse(object):
         self.body = body
 
 class HTTPClient(object):
-    #def get_host_port(self,url):
-
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # obtained info about SSL and encryption via chat GPT-3.5
+        if port == 443:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.verify_mode = ssl.CERT_REQUIRED
+            context.load_default_certs()
+            self.socket = context.wrap_socket(self.socket, server_hostname=host)
+        
         self.socket.connect((host, port))
         return None
 
 
 
     def get_headers(self,data):
-        return None
+        
+        headers = {}
+        data = data.split('\r\n')
+        for line in data:
+            key_value = line.split(":", 1)
+            if (len(key_value) == 2):
+                headers[key_value[0]] = key_value[1].strip()
+        # print(headers)
+        # print(data)
+        return headers
 
     
     def sendall(self, data):
@@ -91,7 +107,10 @@ class HTTPClient(object):
         host_info = parsed_url.netloc.split(":")
         if len(host_info) == 1:
             host = host_info[0]
-            port = 80
+            if parsed_url.scheme == "http":
+                port = 80
+            elif parsed_url.scheme == "https":
+                port = 443
         else:
             host = host_info[0]
             port = int(host_info[1])
@@ -100,27 +119,32 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         # # ex: google.com
         # # scheme='https', netloc='www.google.com', path='/', params='', query='', fragment=''
-        host, port, parsed_url = self.parse_url(url)
-        
-        # print(f"host: {host}, port: {port}")
+        host, port, parsed_url = self.parse_url(url)        
         self.connect(host, port)
         connection_type = "close"
         request = f"GET {parsed_url.path} HTTP/1.1\r\nHost: {host}\r\nConnection: {connection_type}\r\n\r\n"
         
-        
         self.sendall(request)
-        # print(request.encode('utf-8'))
         response = self.recvall(self.socket)
-        # print(f"THE REsponse: {response}")
         
         code = int(self.get_code(response))
         body = self.get_body(response)
-        # code = 500
-        # body = ""
+        
+        print(f"Response code: {code}")
+        print(f"Response body: {body}")
+        # headers = self.get_headers(response)
+        self.close()
+        
+        if 300 <= code < 400:
+            print(code)
+            print("redirecting")
+            headers = self.get_headers(response)
+            new_url = headers["Location"]
+            return self.GET(new_url)
+
         return HTTPResponse(code, body)
 
     def POST(self, url, args:Dict = None):
-        # print(f"args: {args}")
         host, port, parsed_url = self.parse_url(url)
         self.connect(host, port)
         connection_type = "close"
@@ -129,9 +153,6 @@ class HTTPClient(object):
             request_body = '&'.join([f'{key}={value}' for key, value in args.items()])
             request += "Content-Type: application/x-www-form-urlencoded\r\n"
             request += f"Content-Length: {len(request_body.encode('utf-8'))}\r\n"
-            # request += f"Content-Length: {len(args)}\r\n"
-            # print(f"request length: {len(request_body.encode('utf-8'))}")
-            # print(f"request args length: {len(args)}")
             request += "\r\n"
             request += request_body
             
@@ -140,11 +161,14 @@ class HTTPClient(object):
             request += "\r\n"
         self.sendall(request)
         response = self.recvall(self.socket)
+          
         code = int(self.get_code(response))
         body = self.get_body(response)
         
-        # print(f"THE POST REQUEST: {request}")
-        # print(f"THE POST RESPONSE: {response}")
+        print(f"Response code: {code}")
+        print(f"Response body: {body}")
+        self.close()
+        
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -163,7 +187,3 @@ if __name__ == "__main__":
         print(client.command( sys.argv[2], sys.argv[1] ))
     else:
         print(client.command( sys.argv[1] ))
-# 
-# BASEHOST = '127.0.0.1'
-# BASEPORT = 27600 + random.randint(1,100)
-# req = http.GET("http://%s:%d/49872398432" % (BASEHOST,BASEPORT) )
